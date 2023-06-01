@@ -17,14 +17,16 @@ class GA(Node):
         Node.__init__(self, input_port)
 
         self.marker_input = marker_input_port
-        self.output.set_parameters(data_type=self.input.data_type, channels=self.input.channels, sampling_frequency=self.input.sampling_frequency,  meta=self.input.meta, epoching_frequency=self.input.epoching_frequency,)
+        self.output.set_parameters(data_type=self.input.data_type, channels=self.input.channels, 
+                                   sampling_frequency=self.input.sampling_frequency,  
+                                   meta=self.input.meta, epoching_frequency=self.input.epoching_frequency,)
         self.marker_output = Port()
         self.marker_output.set_parameters(data_type='marker', channels=['marker'], sampling_frequency=0, meta='')
         self.channels = self.input.channels
         self.nchans = len(self.channels)
         self.min_wins = min_wins
         self.max_wins = max_wins
-        self.npnts = int(tr * fs)                                                   # This should be already an integer value! So int() just affects the type, not the value.
+        self.npnts = int(tr * fs)  # This should be already an integer value! So int() just affects the type, not the value.
         self.temp_wins = deque(np.zeros((self.max_wins + 1, self.npnts, self.nchans)), maxlen=self.max_wins + 1)
         self.template = np.zeros((self.npnts, self.nchans))
         self.lim1 = 0

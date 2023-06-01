@@ -7,33 +7,53 @@ It offers a lot of possibilities, many basic functions are already implemented s
 
 ## Installation
 
-### Basic use
+### Set the venv
 
 NeuXus requires Python 3.7+, verify your Python version with:
 ```
 python --version
 ```
+Create environment : 
+```
+conda create --name neuxus --clone nfb
+
+conda activate neuxus
+```
+
 Install NeuXus with:
 ```
 pip install neuxus
+
+pip install numba
 ```
+
+Download [BrainVision LSL Viewer] (https://www.brainproducts.com/downloads/more-software/)
+
+Download [LabRecorder] (https://github.com/labstreaminglayer/App-LabRecorder/releases/tag/v1.16.4)
+## Train the LSTM for PA correction
+Cf [train-LSTM] (https://github.com/Soraya28/NeuXus/tree/master/utils/train-LSTM-model)
 
 ## Run
 
-### Run basic pipeline from NeuXus
+### Run EDEA pipeline from NeuXus
+See for more information, read the [Documentation](https://laseeb.github.io/NeuXus/index.html) or the published [paper](https://arxiv.org/abs/2012.12794)
+
 
 ```
-neuxus basics/generate_send.py -e
+cd mypipeline
+neuxus mypipeline_EDEA.py -l DEBUG -f
 ```
 
-### Run your pipeline from NeuXus
+optional arguments:
+  -h, --help            show this help message and exit
+  -f, --file            Store logs in a log file, default is on cmd window
+  -l {DEBUG,INFO}, --loglevel {DEBUG,INFO}
+                        Specify the log level, default is INFO
+  -e, --example         To run an example from NeuXus
 
-```
-neuxus path_to_my_pipeline.py
-```
+Open LSL Viewer to see the different stream of data
 
-For more information, read the [Documentation](https://laseeb.github.io/NeuXus/index.html) or the published [paper](https://arxiv.org/abs/2012.12794)
-
+image.png
 
 ## Citation
 ### When using for your research, please cite:
