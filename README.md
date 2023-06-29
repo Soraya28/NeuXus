@@ -15,16 +15,20 @@ python --version
 ```
 Create environment : 
 ```
-conda create --name neuxus --clone nfb
 
-conda activate neuxus
+conda create -n "test" python=3.8
+#conda create --name nfmri --clone nfb
+
+conda activate nf
 ```
 
 Install NeuXus with:
 ```
 pip install neuxus
+#pip install git+https://github.com/LaSEEB/NeuXus
+#for the latest version
 
-pip install numba
+#pip install numba
 ```
 
 Download [BrainVision LSL Viewer] (https://www.brainproducts.com/downloads/more-software/)
@@ -54,6 +58,20 @@ optional arguments:
 Open LSL Viewer to see the different stream of data
 
 image.png
+
+## Optionnal - create a BAT file
+Find the path of your venv
+```
+conda activate nf
+echo %CONDA_PREFIX%
+```
+Create run_neuxus.bat (change the path by the previous output)
+
+```
+@ECHO OFF
+"C:\Users\guta_\Desktop\Presentations\2023\Soraya\Code\env\neuxus-master\Scripts\neuxus.exe" script_cor.py
+PAUSE
+```
 
 ## Citation
 ### When using for your research, please cite:
