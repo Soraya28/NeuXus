@@ -13,6 +13,42 @@ import logging
 # check: https://github.com/varjak/NeuXus-offline-correction
 
 class GA(Node):
+    """
+    Class for Gradient Artifact (GA) correction.
+
+    Parameters
+    ----------
+        input_port: NeuXus signal.output
+            Input port for data.
+        marker_input_port: NeuXus signal.marker_output
+            Marker input port (optional).
+        start_marker: string
+            Start marker value (optional).
+        min_wins: int
+            Minimum number of windows required for GA correction (default: 7).
+            ie when starting the correction, the previous 7 windows only will be averaged and subtracted from the data.
+        max_wins: int
+            Maximum number of windows to store for GA correction (default: 30).
+            ie the correction will be performed with the last 30 windows if they exist (if online realt-time correction is used).
+        tr: float
+            TR value in seconds (default: 1.260).
+        fs: int
+            Sampling frequency (default: 5000).
+
+    Returns
+    -------
+        Signal corrected from GA.
+    
+
+    Notes
+    -----
+        See https://github.com/LaSEEB/NeuXus/blob/81d1779c02e8dcda0236f2698f9490799714598f/examples/mri-artifact-correction/correct.py
+
+        Before the first min_wins have not passed, no GA correction is performed. 
+        Therefore you need to wait for the first min_wins to be collected before starting the correction (and providing real-time neurofeedback).
+
+    """
+
     def __init__(self, input_port, marker_input_port=None, start_marker=None, min_wins=7, max_wins=30, tr=1.260, fs=5000):
         Node.__init__(self, input_port)
 
@@ -39,6 +75,10 @@ class GA(Node):
         self.subtracting_start_time = None
 
     def update(self):
+        """
+        Update method for the GA node.
+        """
+
         # Find the start time in the marker stream
         if self.find_start_marker:
             for marker in self.marker_input:
@@ -89,10 +129,16 @@ class GA(Node):
         self.temp_wins[-1][self.lim1:lim2, :] = chunk.iloc[clim1:clim2, :]
 
     def average(self, lim2):
+        """
+        Creating average template for GA artifact correction (AAS)
+        """
         self.template[self.lim1:lim2, :] = (self.template[self.lim1:lim2, :] * min(self.wcount, self.max_wins) - self.temp_wins[0][self.lim1:lim2, :] + self.temp_wins[-1][self.lim1:lim2, :]) / min((self.wcount + 1), self.max_wins)
 
     def subtract(self, chunk, lim2, clim1, clim2):
-        mat = chunk.to_numpy(copy=True)                                                   # Unfortunately subtracting the dataframe raises an error, so it is converted to numpy
+        """
+        Substracting the template for AAS
+        """
+        mat = chunk.to_numpy(copy=True) # Unfortunately subtracting the dataframe raises an error, so it is converted to numpy
         if self.wcount >= self.min_wins - 1:
             mat[clim1:clim2, :] = mat[clim1:clim2, :] - self.template[self.lim1:lim2, :]  # Subtract the template to the current chunk
             # Send a marker to mark the start of the GA subtraction
@@ -103,9 +149,134 @@ class GA(Node):
 
         return pd.DataFrame(data=mat, index=chunk.index, columns=chunk.columns)
 
+    """
+    Class for Gradient Artifact (GA) correction.
 
+    Parameters
+    ----------
+        input_port: NeuXus signal.output
+            Input port for data.
+        marker_input_port: NeuXus signal.marker_output
+            Marker input port (optional).
+        start_marker: string
+            Start marker value (optional).
+        min_wins: int
+            Minimum number of windows required for GA correction (default: 7).
+            ie when starting the correction, the previous 7 windows only will be averaged and subtracted from the data.
+        max_wins: int
+            Maximum number of windows to store for GA correction (default: 30).
+            ie the correction will be performed with the last 30 windows if they exist (if online realt-time correction is used).
+        tr: float
+            TR value in seconds (default: 1.260).
+        fs: int
+            Sampling frequency (default: 5000).
+
+    Returns
+    -------
+        Signal corrected from GA.
+    
+
+    Notes
+    -----
+        See https://github.com/LaSEEB/NeuXus/blob/81d1779c02e8dcda0236f2698f9490799714598f/examples/mri-artifact-correction/correct.py
+
+        Before the first min_wins have not passed, no GA correction is performed. 
+        Therefore you need to wait for the first min_wins to be collected before starting the correction (and providing real-time neurofeedback).
+
+    """
 class PA(Node):
-    def __init__(self, input_port, weights_path, marker_input_port=None, start_marker='Start of GA subtraction', stride=50, min_wins=10, max_wins=20, min_hc=0.4, max_hc=1.5, short_sight='both', margin=0.1, thres=0.05, filter_ecg=False, numba=True):
+    """
+    Class for performing PA (Pulse Artefact) correction on ECG data.
+
+    Parameters
+    ----------
+        input_port: NeuXus signal.output
+            Input port for data.
+        marker_input_port: NeuXus signal.marker_output
+            Marker input port (optional).
+        weights_path: str
+            The directory of the trained LSTM model for detecting R peaks.
+        start_marker: str
+            The marker value indicating the start of GA subtraction.
+        stride: int
+            The stride value for detecting R peaks.
+        min_wins: int
+            The minimum number of detected R peaks to initialize a heart cycle template.
+        max_wins: int
+            The maximum number of detected R peaks to maintain in the heart cycle template.
+        min_hc: float
+            The minimum distance (in seconds) between consecutive R peaks in a heart cycle.
+        max_hc: float
+            The maximum distance (in seconds) between consecutive R peaks in a heart cycle.
+        short_sight: str
+            The mode for handling short-sighted R peaks. Can be 'both', 'pre', or 'post'.
+        margin: float
+            The margin (in seconds) to consider after the detection window for heart cycle alignment.
+            The total window length will depend on stride + margin.
+            #TODO to check
+        thres: float
+            The amplitude threshold for considering a peak as an R peak.
+        filter_ecg: bool
+            Whether to filter the ECG signal before detecting R peaks.
+            (default: False)
+            #TODO to check the filter and mention it here, look like forward/backward filter
+                
+
+        numba : bool
+            Whether to use Numba-accelerated functions for peak detection.
+            (default: True)
+
+    Attributes
+    ----------
+        marker_input (Port): The marker input port.
+        output (Port): The output port for the processed ECG data.
+        marker_output (Port): The output port for marker data.
+        channels (list): The list of channel names in the ECG data.
+        nchans (int): The number of channels in the ECG data.
+        ecg_id (int): The index of the ECG channel in the channels list.
+        stride (int): The stride value for detecting R peaks.
+        min_wins (int): The minimum number of detected R peaks to initialize a heart cycle template.
+        max_wins (int): The maximum number of detected R peaks to maintain in the heart cycle templates.
+        min_hc (int): The minimum distance (in samples) between consecutive R peaks in a heart cycle.
+        max_hc (int): The maximum distance (in samples) between consecutive R peaks in a heart cycle.
+        margin (int): The margin (in samples) to consider after the detection window for heart cycle alignment.
+        short_sight (str): The mode for handling short-sighted R peaks.
+        thres (float): The threshold for considering a peak as an R peak.
+        predictor (PredictRPeaks): The instance of the R peak predictor.
+        win_len (int): The length of the detection window.
+        detect_win (deque): The deque to store the ECG data in the detection window.
+        rpeaks_win (deque): The deque to store the R peak detection flags in the detection window.
+        start_marker (str): The marker value indicating the start of GA subtraction.
+        find_start_marker (bool): Whether to search for the start marker in the marker input.
+        found_start_marker (bool): Whether the start marker has been found.
+        found_start_point (bool): Whether the start point (time) has been found in the data stream.
+        building_start (bool): Whether the GA building phase is ongoing.
+        building_start_time (Timestamp): The start time for GA building.
+        subtract_start_time (Timestamp): The start time for GA subtraction.
+        temp (np.ndarray): The array to store the heart cycle templates.
+        weights (np.ndarray): The array to store the weights for heart cycle templates.
+        hcp_win (np.ndarray): The array to store the heart cycle labels in the detection window.
+        time_win (deque): The deque to store the time values in the detection window.
+        aligner (PeakAligner): The instance of the PeakAligner for aligning heart cycles.
+
+    Notes
+    -----
+        Can expect 1 heartbeat per second (60 bpm) / 1.6 heartbeats per second (100 bpm) in resting state.
+        ADD literature 
+        https://www.mayoclinic.org/healthy-lifestyle/fitness/expert-answers/heart-rate/faq-20057979
+
+        2 types of markers will be output : R peak and R peak fixed 
+            If you want to record the detected R peaks to use offline, 
+            NeuXus recommends using the 'R peak fixed'. 
+            The normal R peaks are updated every detection, 
+            so they can be numerous and regarding the same ECG points. 
+            The 'R peak fixed' correspond to the last update (and hence, is also more robust)
+    """
+
+
+    def __init__(self, input_port, weights_path, marker_input_port=None, start_marker='Start of GA subtraction', 
+                 stride=50, min_wins=10, max_wins=20, min_hc=0.4, max_hc=1.5, short_sight='both', margin=0.1, 
+                 thres=0.05, filter_ecg=False, numba=True):
         Node.__init__(self, input_port)
         # A new LSTM model (whose directory is passed to this class as weights_path) can be trained to detect R peaks in a ECG
         # by following the steps in "NeuXus/utils/train-LSTM-model/"
@@ -121,7 +292,7 @@ class PA(Node):
         self.stride = stride
         self.min_wins = min_wins
         self.max_wins = max_wins
-        self.min_hc = round(min_hc * fs)
+        self.min_hc = round(min_hc * fs) #convert it to samples
         self.max_hc = round(max_hc * fs)
         self.margin = round(margin * fs)
         self.short_sight = short_sight
@@ -361,6 +532,30 @@ class PA(Node):
 
 
 class PredictRPeaks:
+    """
+    Class for predicting R peaks.
+
+    Parameters
+    ----------
+        weight_path : str
+            Path to the weight file.
+        numba : bool, optional
+            Flag indicating whether to use Numba for faster computation (default: True).
+
+    Returns
+    -------
+        None
+
+    Notes
+    -----
+        The class provides functionality for predicting R peaks using the provided weights.
+        The weights should be stored in a pickle file specified by `weight_path`.
+        The `numba` flag determines whether Numba is used for faster computation.
+
+        See https://github.com/jtlait/ecg2rr
+        Laitala, Juho & Jiang, Mingzhe & Syrjälä, Elise & Kasaeyan Naeini, Emad & Airola, Antti & Rahmani, 
+        Amir M. & Dutt, Nikil & Liljeberg, Pasi. (2020). Robust ECG R-peak detection using LSTM. 10.1145/3341105.3373945. 
+    """
     def __init__(self, weight_path, numba=True):
         self.weights = pickle.load(open(weight_path, 'rb'))
         self.ht = np.zeros((self.weights['t'], self.weights['u']), dtype=np.float32)
@@ -376,6 +571,25 @@ class PredictRPeaks:
             # print('Numba compilation time: ', time.perf_counter() - t1)
 
     def predict(self, xt):
+        """
+        Perform R peak prediction using the LSTM model (determined by the weight_path).
+
+        Parameters
+        ----------
+        xt : ndarray
+            Input data for prediction.
+
+        Returns
+        -------
+        ndarray
+            Predicted R peaks.
+
+        Notes
+        -----
+        This method performs R peak prediction using the provided input data (`xt`).
+        The output is an array of predicted R peaks.
+        """
+
         if self.numba:
             return self._predict_numba(xt, self.ht, self.c, **self.weights)
         else:
@@ -388,6 +602,34 @@ class PredictRPeaks:
                        bo1f, whf1b, wxf1b, bf1b, whi1b, wxi1b, bi1b, whl1b, wxl1b, bl1b, who1b, wxo1b, bo1b, whf2f,
                        wxf2f, bf2f, whi2f, wxi2f, bi2f, whl2f, wxl2f, bl2f, who2f, wxo2f, bo2f, whf2b, wxf2b, bf2b,
                        whi2b, wxi2b, bi2b, whl2b, wxl2b, bl2b, who2b, wxo2b, bo2b, wd, bd):
+        
+        """Perform prediction using the LSTM model with Numba acceleration.
+
+        Parameters
+        ----------
+            #TODO to check all params
+            xt (np.ndarray): The input data.
+            ht (np.ndarray): The hidden state array.
+            c (np.ndarray): The cell state array.
+            u (np.ndarray): The output array.
+            t (int): The number of time steps.
+            whf1f, wxf1f, bf1f, whi1f, wxi1f, bi1f, whl1f, wxl1f, bl1f, who1f, wxo1f, bo1f (np.ndarray): Weights and biases for LSTM forward layer 1.
+            whf1b, wxf1b, bf1b, whi1b, wxi1b, bi1b, whl1b, wxl1b, bl1b, who1b, wxo1b, bo1b (np.ndarray): Weights and biases for LSTM backward layer 1.
+            whf2f, wxf2f, bf2f, whi2f, wxi2f, bi2f, whl2f, wxl2f, bl2f, who2f, wxo2f, bo2f (np.ndarray): Weights and biases for LSTM forward layer 2.
+            whf2b, wxf2b, bf2b, whi2b, wxi2b, bi2b, whl2b, wxl2b, bl2b, who2b, wxo2b, bo2b (np.ndarray): Weights and biases for LSTM backward layer 2.
+            wd (np.ndarray): The weights for the dense layer.
+            bd (np.ndarray): The biases for the dense layer.
+
+        Returns
+        -------
+            np.ndarray: The predicted output.
+
+        Notes
+        -----
+            See https://github.com/jtlait/ecg2rr
+            Laitala, Juho & Jiang, Mingzhe & Syrjälä, Elise & Kasaeyan Naeini, Emad & Airola, Antti & Rahmani, 
+            Amir M. & Dutt, Nikil & Liljeberg, Pasi. (2020). Robust ECG R-peak detection using LSTM. 10.1145/3341105.3373945. 
+        """
 
         def tanh(a):
             return np.tanh(a)
