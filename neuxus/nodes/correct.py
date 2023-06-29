@@ -201,9 +201,10 @@ class PA(Node):
         stride: int
             The stride value for detecting R peaks.
         min_wins: int
-            The minimum number of detected R peaks to initialize a heart cycle template.
+            The minimum number of detected R peaks to a PA template (to then be substracting to the signal).
+            If NeuXus is used online, no correction of PA will be performed before min_wins have been detected.
         max_wins: int
-            The maximum number of detected R peaks to maintain in the heart cycle template.
+            The maximum number of detected R peaks to a PA template (to then be substracting to the signal).
         min_hc: float
             The minimum distance (in seconds) between consecutive R peaks in a heart cycle.
         max_hc: float
@@ -215,7 +216,8 @@ class PA(Node):
             The total window length will depend on stride + margin.
             #TODO to check
         thres: float
-            The amplitude threshold for considering a peak as an R peak.
+            The threshold for considering a peak as an R peak.
+            The threshold is applied to the probability of having an R peak (LSTM predictions outputs).
         filter_ecg: bool
             Whether to filter the ECG signal before detecting R peaks.
             (default: False)
@@ -603,7 +605,8 @@ class PredictRPeaks:
                        wxf2f, bf2f, whi2f, wxi2f, bi2f, whl2f, wxl2f, bl2f, who2f, wxo2f, bo2f, whf2b, wxf2b, bf2b,
                        whi2b, wxi2b, bi2b, whl2b, wxl2b, bl2b, who2b, wxo2b, bo2b, wd, bd):
         
-        """Perform prediction using the LSTM model with Numba acceleration.
+        """
+        Perform prediction using the LSTM model with Numba acceleration.
 
         Parameters
         ----------
