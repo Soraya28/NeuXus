@@ -199,7 +199,7 @@ class PA(Node):
         start_marker: str
             The marker value indicating the start of GA subtraction.
         stride: int
-            The stride value for detecting R peaks.
+            Amount (step) to move the window. Must be 100, 200, 250 or 500.
         min_wins: int
             The minimum number of detected R peaks to a PA template (to then be substracting to the signal).
             If NeuXus is used online, no correction of PA will be performed before min_wins have been detected.
@@ -216,6 +216,7 @@ class PA(Node):
             The total window length will depend on stride + margin.
             #TODO to check
         thres: float
+            Threshold value used to do initial filtering of model predictions.
             The threshold for considering a peak as an R peak.
             The threshold is applied to the probability of having an R peak (LSTM predictions outputs).
         filter_ecg: bool
@@ -607,6 +608,7 @@ class PredictRPeaks:
         
         """
         Perform prediction using the LSTM model with Numba acceleration.
+        This is a bidirectional LSTM model with two layers (f for forward and b for backward).
 
         Parameters
         ----------
