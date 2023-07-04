@@ -272,8 +272,8 @@ class PA(Node):
             If you want to record the detected R peaks to use offline, 
             NeuXus recommends using the 'R peak fixed'. 
             The normal R peaks are updated every detection, 
-            so they can be numerous and regarding the same ECG points. 
-            The 'R peak fixed' correspond to the last update (and hence, is also more robust)
+            so they can be numerous and regarding the same ECG points (multiple R peaks detected at the same points, per window). 
+            The 'R peak fixed' correspond to the last update (and hence, is also more robust).
     """
 
 
